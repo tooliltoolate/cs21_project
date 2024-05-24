@@ -1,0 +1,21 @@
+{
+	"bmi-installation" : null,
+	"compiler-frontend-variant" : "GNU",
+	"compiler-id" : "Clang",
+	"compiler-simulate-id" : "",
+	"config" : "",
+	"cxx-modules" : {},
+	"dir-cur-bld" : "/home/ftl2/projects/cs_21/project/build",
+	"dir-cur-src" : "/home/ftl2/projects/cs_21/project/src",
+	"dir-top-bld" : "/home/ftl2/projects/cs_21/project/build",
+	"dir-top-src" : "/home/ftl2/projects/cs_21/project/src",
+	"exports" : [],
+	"forward-modules-from-target-dirs" : [],
+	"include-dirs" : [],
+	"language" : "CXX",
+	"linked-target-dirs" : 
+	[
+		"/home/ftl2/projects/cs_21/project/build/CMakeFiles/Seat.dir"
+	],
+	"module-dir" : "/home/ftl2/projects/cs_21/project/build/CMakeFiles/library_seat_manager.dir"
+}

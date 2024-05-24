@@ -1,0 +1,14 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles/library_seat_manager.dir/main.cxx.o",
+      "requires": [
+        {
+          "logical-name": "Seat"
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

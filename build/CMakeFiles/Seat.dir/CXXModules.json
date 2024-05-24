@@ -1,0 +1,19 @@
+{
+	"modules" : 
+	{
+		"Seat" : 
+		{
+			"bmi" : "/home/ftl2/projects/cs_21/project/build/CMakeFiles/Seat.dir/Seat.pcm",
+			"is-private" : false
+		}
+	},
+	"references" : 
+	{
+		"Seat" : 
+		{
+			"lookup-method" : "by-name",
+			"path" : "CMakeFiles/Seat.dir/Seat.pcm"
+		}
+	},
+	"usages" : {}
+}

@@ -1,0 +1,4 @@
+/home/ftl2/projects/cs_21/project/build/CMakeFiles/Seat.dir
+/home/ftl2/projects/cs_21/project/build/CMakeFiles/library_seat_manager.dir
+/home/ftl2/projects/cs_21/project/build/CMakeFiles/edit_cache.dir
+/home/ftl2/projects/cs_21/project/build/CMakeFiles/rebuild_cache.dir

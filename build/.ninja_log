@@ -1,0 +1,20 @@
+# ninja log v6
+171	227	1715947072256279096	libSeat.a	613b2c8395680299
+83	90	1715946634948262597	CMakeFiles/library_seat_manager.dir/main.cxx.o.modmap	50f66dc51b9347d5
+947	1075	1715947073032279125	library_seat_manager	dff9c8ed86acb5a8
+2	49	1715947072088279089	CMakeFiles/Seat.dir/modules/seat.cxx.o.ddi	13351bb1bab5cf3b
+50	57	1715947072136279091	CMakeFiles/Seat.dir/CXX.dd	f3dec451f19c6c36
+50	57	1715947072136279091	/home/ftl2/projects/cs_21/project/build/CMakeFiles/Seat.dir/CXXModules.json	f3dec451f19c6c36
+50	57	1715947072136279091	CMakeFiles/Seat.dir/modules/seat.cxx.o.modmap	f3dec451f19c6c36
+57	171	1715947072248279095	CMakeFiles/Seat.dir/modules/seat.cxx.o	c56feac093cfba42
+171	947	1715947072256279096	CMakeFiles/library_seat_manager.dir/main.cxx.o	ec439aa35e2033f9
+3	82	1715946634868262594	CMakeFiles/library_seat_manager.dir/main.cxx.o.ddi	60a7119e77d9af46
+83	90	1715946634948262597	CMakeFiles/library_seat_manager.dir/CXX.dd	50f66dc51b9347d5
+57	171	1715947072248279095	CMakeFiles/Seat.dir/Seat.pcm	c56feac093cfba42
+83	90	1715946634948262597	/home/ftl2/projects/cs_21/project/build/CMakeFiles/library_seat_manager.dir/CXXModules.json	50f66dc51b9347d5
+2	10	1715947185728283377	CMakeFiles/Seat.dir/CXX.dd	f3dec451f19c6c36
+2	10	1715947185728283377	/home/ftl2/projects/cs_21/project/build/CMakeFiles/Seat.dir/CXXModules.json	f3dec451f19c6c36
+2	10	1715947185728283377	CMakeFiles/Seat.dir/modules/seat.cxx.o.modmap	f3dec451f19c6c36
+10	18	1715947185736283377	CMakeFiles/library_seat_manager.dir/CXX.dd	50f66dc51b9347d5
+10	18	1715947185736283377	/home/ftl2/projects/cs_21/project/build/CMakeFiles/library_seat_manager.dir/CXXModules.json	50f66dc51b9347d5
+10	18	1715947185736283377	CMakeFiles/library_seat_manager.dir/main.cxx.o.modmap	50f66dc51b9347d5
