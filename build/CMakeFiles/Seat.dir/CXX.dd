@@ -1,4 +1,0 @@
-ninja_dyndep_version = 1.0
-build CMakeFiles/Seat.dir/modules/seat.cxx.o | CMakeFiles/Seat.dir/Seat.pcm: dyndep
-  restat = 1
-

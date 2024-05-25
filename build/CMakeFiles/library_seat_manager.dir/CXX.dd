@@ -1,3 +1,0 @@
-ninja_dyndep_version = 1.0
-build CMakeFiles/library_seat_manager.dir/main.cxx.o: dyndep | CMakeFiles/Seat.dir/Seat.pcm
-
