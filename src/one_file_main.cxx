@@ -42,7 +42,8 @@ int main(){
 		std::cout << "What do you want to do?" << std::endl;
 		std::cout << "1. Show all available seats" << std::endl;
 		std::cout << "2. Register a seat" << std::endl;
-		std::cout << "3. Exit" << std::endl;
+		std::cout << "3. Leave a seat" << std::endl;
+		std::cout << "4. Exit" << std::endl;
 		int choice;
 		std::cin >> choice;
 		if(choice == 1){
@@ -65,7 +66,20 @@ int main(){
 			std::cin >> occupant_id;
 			Library[x][y].register_seat() = occupant_id;
 		}
-		else if(choice == 3){
+		else if(choice == 3) {
+			std::cout << "Enter the x and y coordinates of the seat you want to register" << std::endl;
+			int x, y;
+			std::cin >> x >> y;
+			std::cout << "Enter the occupant id" << std::endl;
+			uint16_t occupant_id;
+			std::cin >> occupant_id;
+			if(Library[x][y].get_occupant_id() == occupant_id) {
+				Library[x][y].register_seat() = 0;
+				std::cout << "Seat at (" << x << "," << y << ") has been left." << std::endl;
+			} else {
+				std::cout << "Incorrect occupant id. Unable to leave the seat." << std::endl;
+			}
+		}else if(choice == 4){
 			break;
 		}
 	}
