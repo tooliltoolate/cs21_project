@@ -1,1 +1,13 @@
-Let user leave a seat 
+Add time logging
+Add break functionality
+
+Main Menu
+-> Admin (admin password)
+	-> Occupied Seats 
+	-> Log
+	-> Data analytics
+-> Available Seats Screen
+	-> Seat Occupant Screen
+		-> Request Break Screen
+		-> Exit (Leave seat)
+	-> Exit (Leave menu)
