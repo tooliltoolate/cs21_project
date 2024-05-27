@@ -6,7 +6,6 @@
 #include <random>
 #include <mutex>
 
-std::mutex mtx;
 
 class Seat;
 
@@ -18,6 +17,8 @@ struct Message{
 };
 
 std::queue<Message> messageQueue;
+std::mutex mtx;
+
 
 class Rand_int {
 	public:
@@ -78,7 +79,7 @@ void main_loop(std::map<Position, Seat> &Library)
 	while(true)
 	{
 		while(!messageQueue.empty()){
-			std::scoped_lock lock(mtx);
+			std::scoped_lock lock{mtx};
 			std::cout << messageQueue.front().message << std::endl;
 			messageQueue.front().sender->thread.join();
 			messageQueue.pop();
@@ -134,12 +135,11 @@ void main_loop(std::map<Position, Seat> &Library)
 			std::string password;
 			std::cin >> password;
 			if(Library.at(Position(x, y)).password ==password) {
-				Message msg("Owner of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has not yet returned.", &Library.at(Position(x, y)));
-				Message msg2("Owner of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has returned.", &Library.at(Position(x, y)));
-				int i = 0;
-				Library.at(Position(x, y)).thread = std::jthread([&msg, &msg2, &i](std::stop_token stoken) {
-					std::scoped_lock lock(mtx);
-					for(i = 0; i < 15; i++){
+				Library.at(Position(x, y)).thread = std::jthread([&x, &y, &Library](std::stop_token stoken) {
+					std::scoped_lock lock{mtx};
+					Message msg("Owner of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has not yet returned.", &Library.at(Position(x, y)));
+					Message msg2("Owner of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has returned.", &Library.at(Position(x, y)));
+					for(int i = 0; i < 15; i++){
 						std::this_thread::sleep_for(std::chrono::seconds(1));
 						if(stoken.stop_requested()) {
 							messageQueue.push(msg2);
