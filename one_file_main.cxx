@@ -1,41 +1,42 @@
-//have a global queue
-//give every seat a timer argument
-//after the async wait, push something to the queue
-//in the for loop, it goes through the queue first
 #include <cstdint>
 #include <iostream>
 #include <functional>
-#include <asio.hpp>
 #include <queue>
 #include <string>
-#include <unordered_map>
+#include <map>
+#include <thread>
+//, PositionHash, PositionEqual
+
+//thread for timer
+//thread for main_loop
+
+std::queue<std::string> messageQueue;
 
 class Position{
 public:
 	int x;
 	int y;
-	Position() : x(0), y(0) {};
 	Position(int x, int y) : x(x), y(y) {}
 	int get_x() const { return x; }
 	int get_y() const { return y; }
+	bool operator<(const Position& other) const {
+		if (x < other.x) return true;
+		if (x > other.x) return false;
+		return y < other.y;
+	}
 };
 
 class Seat {
 public:
 	uintmax_t occupant_id;
 	Position position;
-	asio::steady_timer timer;
-	std::queue<std::string> queue;
+	std::thread thread;
 
-	Seat(int x, int y, uintmax_t occupant_id, std::queue<std::string> queue, asio::io_context& io) : position(x,y), occupant_id(occupant_id), timer(io, asio::chrono::minutes(15)), queue(queue) {}
+	Seat(int x, int y, uintmax_t occupant_id) : position(x,y), occupant_id(occupant_id) {}
 
 	void take_break()
 	{
-		timer.async_wait([this](const asio::error_code& ec) {
-			if (!ec) {
-				queue.push("Owner of seat at (" + std::to_string(position.get_x()) + "," + std::to_string(position.get_y()) + ") has not yet returned.");
-			}
-		});
+		std::this_thread::sleep_for(std::chrono::seconds(15)); messageQueue.push("Owner of seat at (" + std::to_string(position.get_x()) + "," + std::to_string(position.get_y()) + ") has not yet returned.");
 	}
 
 	bool is_occupied() const {
@@ -65,16 +66,15 @@ struct PositionEqual {
     }
 };
 
-int main(){
-	std::queue<std::string> messageQueue;
-	asio::io_context io;
-	std::unordered_map<Position, Seat, PositionHash, PositionEqual> Library;
-	for(int i = 0; i < 5; i++){
-		for(int j = 0; j < 5; j++){
-			Library.emplace(Position(i,j), Seat(i,j,0,messageQueue,io));
-		}
-	}
-	while(true){
+
+void main_loop(std::map<Position, Seat> &Library)
+{
+	while(true)
+	{
+		while(!messageQueue.empty()){
+			std::cout << messageQueue.front() << std::endl;
+			messageQueue.pop();
+		};
 		std::cout << "What do you want to do?" << std::endl;
 		std::cout << "1. Show all available seats" << std::endl;
 		std::cout << "2. Register a seat" << std::endl;
@@ -122,7 +122,7 @@ int main(){
 			std::cout << "Enter the occupant id" << std::endl;
 			uint16_t occupant_id;
 			std::cin >> occupant_id;
-			Library.at(Position(x, y)).take_break();
+			Library.at(Position(x, y)).thread = std::thread(&Seat::take_break, &Library.at(Position(x, y)));
 			
 		}
 		else if(choice == "admin password"){
@@ -136,4 +136,16 @@ int main(){
 		}
 		else if(choice == "5") break;
 	}
+}
+
+int main(){
+	std::map<Position, Seat> Library;
+
+	for(int i = 0; i < 5; i++){
+		for(int j = 0; j < 5; j++){
+			Library.emplace(Position(i,j), Seat(i,j,0));
+		}
+	}
+
+	main_loop(Library);
 }
