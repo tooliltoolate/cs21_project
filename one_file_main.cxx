@@ -52,7 +52,8 @@ public:
 	std::jthread thread;
 
 	Seat(int x, int y, std::string occupant_id) : position(x,y), occupant_id(occupant_id) { 
-		Rand_int rand_int {100, 999};
+		Rand_int rand_int {1000, 9999};
+		rand_int.seed(std::chrono::system_clock::now().time_since_epoch().count());
 		password = std::to_string(rand_int());
 	}
 
