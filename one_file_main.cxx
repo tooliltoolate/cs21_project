@@ -1,16 +1,33 @@
-#include <cstdint>
 #include <iostream>
-#include <functional>
 #include <queue>
 #include <string>
 #include <map>
 #include <thread>
-//, PositionHash, PositionEqual
+#include <random>
+#include <mutex>
 
-//thread for timer
-//thread for main_loop
+std::mutex mtx;
 
-std::queue<std::string> messageQueue;
+class Seat;
+
+struct Message{
+	std::string message;
+	Seat *sender;
+
+	Message(std::string message, Seat *address) : message(message), sender(address) {}
+};
+
+std::queue<Message> messageQueue;
+
+class Rand_int {
+	public:
+	Rand_int(int low, int high) : dist{low,high} { }
+	int operator()() { return dist(re); }
+	void seed(int s) { re.seed(s); }
+	private:
+		std::default_random_engine re;
+		std::uniform_int_distribution<> dist;
+};
 
 class Position{
 public:
@@ -28,51 +45,42 @@ public:
 
 class Seat {
 public:
-	uintmax_t occupant_id;
+	std::string occupant_id;
+	std::string password;
 	Position position;
-	std::thread thread;
+	std::jthread thread;
 
-	Seat(int x, int y, uintmax_t occupant_id) : position(x,y), occupant_id(occupant_id) {}
+	Seat(int x, int y, std::string occupant_id) : position(x,y), occupant_id(occupant_id) { 
+		Rand_int rand_int {100, 999};
+		password = std::to_string(rand_int());
+	}
 
-	void take_break()
-	{
-		std::this_thread::sleep_for(std::chrono::seconds(15)); messageQueue.push("Owner of seat at (" + std::to_string(position.get_x()) + "," + std::to_string(position.get_y()) + ") has not yet returned.");
+	void print_password() {
+		std::cout << "Password for seat at (" << position.get_x() << "," << position.get_y() << ") is " << password << std::endl;
 	}
 
 	bool is_occupied() const {
-		if(occupant_id == 0){
+		if(occupant_id == "0"){
 			return false;
 		}
 		else{
 			return true;
 		}
 	}
-	uintmax_t get_occupant_id() const { return occupant_id; }
-	uintmax_t & register_seat() { return occupant_id; }
-	const uintmax_t & register_seat() const { return occupant_id; }
+	std::string get_occupant_id() const { return occupant_id; }
+	std::string & register_seat() { return occupant_id; }
+	const std::string & register_seat() const { return occupant_id; }
 	Position get_position() const { return position; }
 };
-
-struct PositionHash {
-    std::size_t operator()(const Position& foo) const {
-        return std::hash<int>()(foo.x) ^ std::hash<int>()(foo.y);
-    }
-};
-
-// Define the equality function for Position
-struct PositionEqual {
-    bool operator()(const Position& lhs, const Position& rhs) const {
-        return lhs.x == rhs.x && lhs.y == rhs.y;
-    }
-};
-
 
 void main_loop(std::map<Position, Seat> &Library)
 {
 	while(true)
 	{
 		while(!messageQueue.empty()){
-			std::cout << messageQueue.front() << std::endl;
+			std::scoped_lock lock(mtx);
+			std::cout << messageQueue.front().message << std::endl;
+			messageQueue.front().sender->thread.join();
 			messageQueue.pop();
 		};
 		std::cout << "What do you want to do?" << std::endl;
@@ -80,7 +88,8 @@ void main_loop(std::map<Position, Seat> &Library)
 		std::cout << "2. Register a seat" << std::endl;
 		std::cout << "3. Leave a seat" << std::endl;
 		std::cout << "4. Take a break" << std::endl;
-		std::cout << "5. Exit" << std::endl;
+		std::cout << "5. Return from break" << std::endl;
+		std::cout << "6. Exit" << std::endl;
 		std::string choice;
 		std::cin >> choice;
 		if(choice == "1"){
@@ -97,32 +106,66 @@ void main_loop(std::map<Position, Seat> &Library)
 			int x, y;
 			std::cin >> x >> y;
 			std::cout << "Enter the occupant id" << std::endl;
-			uint16_t occupant_id;
+			std::string occupant_id;
 			std::cin >> occupant_id;
 			Library.at(Position(x, y)).register_seat() = occupant_id;
+			Library.at(Position(x, y)).print_password();
+			
 		}
 		else if(choice == "3") {
 			std::cout << "Enter the x and y coordinates of your seat" << std::endl;
 			int x, y;
 			std::cin >> x >> y;
-			std::cout << "Enter the occupant id" << std::endl;
-			uint16_t occupant_id;
-			std::cin >> occupant_id;
-			if(Library.at(Position(x, y)).get_occupant_id() == occupant_id) {
-				Library.at(Position(x, y)).register_seat() = 0;
+			std::cout << "Enter the password" << std::endl;
+			std::string password;
+			std::cin >>password;
+			if(Library.at(Position(x, y)).password ==password) {
+				Library.at(Position(x, y)).register_seat() = "0";
 				std::cout << "Seat at (" << x << "," << y << ") has been left." << std::endl;
 			} else {
-				std::cout << "Incorrect occupant id. Unable to leave the seat." << std::endl;
+				std::cout << "Incorrect password. Unable to leave the seat." << std::endl;
 			}
 		}
 		else if(choice == "4"){
 			std::cout << "Enter the x and y coordinates of your seat" << std::endl;
 			int x, y;
 			std::cin >> x >> y;
-			std::cout << "Enter the occupant id" << std::endl;
-			uint16_t occupant_id;
-			std::cin >> occupant_id;
-			Library.at(Position(x, y)).thread = std::thread(&Seat::take_break, &Library.at(Position(x, y)));
+			std::cout << "Enter the password " << std::endl;
+			std::string password;
+			std::cin >> password;
+			if(Library.at(Position(x, y)).password ==password) {
+				Message msg("Owner of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has not yet returned.", &Library.at(Position(x, y)));
+				Message msg2("Owner of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has returned.", &Library.at(Position(x, y)));
+				int i = 0;
+				Library.at(Position(x, y)).thread = std::jthread([&msg, &msg2, &i](std::stop_token stoken) {
+					std::scoped_lock lock(mtx);
+					for(i = 0; i < 15; i++){
+						std::this_thread::sleep_for(std::chrono::seconds(1));
+						if(stoken.stop_requested()) {
+							messageQueue.push(msg2);
+							return;
+						}
+					}
+					messageQueue.push(msg);
+				});
+				std::cout << "User of seat at (" << x << "," << y << ") has taken a break." << std::endl;
+			} else {
+				std::cout << "Incorrect password." << std::endl;
+			}
+			
+		}
+		else if(choice == "5"){
+			std::cout << "Enter the x and y coordinates of your seat" << std::endl;
+			int x, y;
+			std::cin >> x >> y;
+			std::cout << "Enter the password " << std::endl;
+			std::string password;
+			std::cin >> password;
+			if(Library.at(Position(x, y)).password ==password) {
+				Library.at(Position(x, y)).thread.request_stop();
+			} else {
+				std::cout << "Incorrect password." << std::endl;
+			}
 			
 		}
 		else if(choice == "admin password"){
@@ -130,11 +173,11 @@ void main_loop(std::map<Position, Seat> &Library)
 			int x, y;
 			std::cin >> x >> y;
 			std::cout << "Enter the occupant id" << std::endl;
-			uint16_t occupant_id;
+			std::string occupant_id;
 			std::cin >> occupant_id;
 			Library.at(Position(x, y)).register_seat() = occupant_id;
 		}
-		else if(choice == "5") break;
+		else if(choice == "6") break;
 	}
 }
 
@@ -143,7 +186,7 @@ int main(){
 
 	for(int i = 0; i < 5; i++){
 		for(int j = 0; j < 5; j++){
-			Library.emplace(Position(i,j), Seat(i,j,0));
+			Library.emplace(Position(i,j), Seat(i,j,"0"));
 		}
 	}
 
