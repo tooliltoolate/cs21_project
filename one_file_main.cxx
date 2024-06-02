@@ -1,3 +1,4 @@
+#include <chrono>
 #include <exception>
 #include <iostream>
 #include <queue>
@@ -18,10 +19,18 @@ struct Message{
 	Message(std::string message, Seat *address) : message(message), sender(address) {}
 };
 
+struct LogEntry {
+    std::string action;
+    std::string type; 
+};
+
 std::queue<Message> messageQueue;
+std::queue<Seat*> leavingQueue;
 std::mutex alarm_queue_mutex;
 std::ofstream logFile("library_log.txt", std::ios::app);
+std::map<std::string, std::vector<LogEntry>> logData;
 std::mutex log_file_mutex;
+std::mutex seat_timer_mutex;
 
 class Rand_int {
 	public:
@@ -133,6 +142,11 @@ void main_loop(std::map<Position, Seat> &Library)
 			messageQueue.front().sender->thread.join();
 			messageQueue.pop();
 		};
+		while(!leavingQueue.empty()){
+			std::scoped_lock lock{seat_timer_mutex};
+			leavingQueue.front()->thread.join();
+			leavingQueue.pop();
+		};
 		std::cout << "What do you want to do?" << std::endl;
 		std::cout << "1. Show all available seats" << std::endl;
 		std::cout << "2. Register a seat" << std::endl;
@@ -160,6 +174,16 @@ void main_loop(std::map<Position, Seat> &Library)
 			Library.at(Position(x, y)).register_seat() = occupant_id;
 			Library.at(Position(x, y)).print_password();
 			log_action("Registered seat at (" + std::to_string(x) + "," + std::to_string(y) + ") with occupant id " + occupant_id);
+			Library.at(Position(x, y)).seated_for_timer = std::jthread([&x, &y, &Library](std::stop_token stoken) {
+				std::scoped_lock lock{seat_timer_mutex};
+				auto time_start = std::chrono::steady_clock::now();
+				while(!stoken.stop_requested()){
+				}
+				auto time_end = std::chrono::steady_clock::now();
+				std::string msg("Owner of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has been seated for " + std::to_string(std::chrono::floor<std::chrono::minutes>(time_end - time_start).count()) + " minutes.");
+				leavingQueue.push(&Library.at(Position(x, y)));
+				log_action(msg);
+			});
 		}
 		else if(choice == "3") {
 			std::cout << "Enter the x and y coordinates of your seat" << std::endl;
@@ -172,6 +196,7 @@ void main_loop(std::map<Position, Seat> &Library)
 				Library.at(Position(x, y)).register_seat() = "0";
 				std::cout << "Seat at (" << x << "," << y << ") has been left." << std::endl;
 				log_action("Seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has been left.");
+				Library.at(Position(x, y)).seated_for_timer.request_stop();
 			} else {
 				std::cout << "Incorrect password. Unable to leave the seat." << std::endl;
 				log_action("Failed attempt to leave seat at (" + std::to_string(x) + "," + std::to_string(y) + ") due to incorrect password.");
@@ -188,7 +213,7 @@ void main_loop(std::map<Position, Seat> &Library)
 				Library.at(Position(x, y)).thread = std::jthread([&x, &y, &Library](std::stop_token stoken) {
 					std::scoped_lock lock{alarm_queue_mutex};
 					Message msg("Owner of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has not yet returned.", &Library.at(Position(x, y)));
-					for(int i = 0; i < 5; i++){
+					for(int i = 0; i < 10; i++){
 						std::this_thread::sleep_for(std::chrono::seconds(1));
 						if(stoken.stop_requested()) {
 							return;
