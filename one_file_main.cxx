@@ -7,7 +7,9 @@
 #include <random>
 #include <mutex>
 #include <fstream>
-
+#include <vector>
+#include <iomanip>
+#include <sstream>
 
 class Seat;
 
@@ -18,10 +20,18 @@ struct Message{
 	Message(std::string message, Seat *address) : message(message), sender(address) {}
 };
 
+struct LogEntry {
+    std::string action;
+    std::string type; 
+};
+
 std::queue<Message> messageQueue;
+std::queue<Seat*> leavingQueue;
 std::mutex alarm_queue_mutex;
 std::ofstream logFile("library_log.txt", std::ios::app);
+std::map<std::string, std::vector<LogEntry>> logData;
 std::mutex log_file_mutex;
+std::mutex seat_timer_mutex;
 
 class Rand_int {
 	public:
@@ -79,15 +89,57 @@ public:
 	Position get_position() const { return position; }
 };
 
-void log_action(const std::string &action) {
-	std::scoped_lock lock{log_file_mutex};
-	logFile << action << std::endl;
+void log_action(const std::string& action, const std::string& type) {
+    logFile << action << std::endl;
+    logData[type].push_back({action, type}); 
 }
 
-void log_action(const Message &action) {
-	std::scoped_lock lock{log_file_mutex};
-	logFile << action.message << std::endl;
+void saveLogData(const std::map<std::string, std::vector<LogEntry>>& logData, const std::string& fileName) {
+    std::ofstream outputFile(fileName);
+
+    if (!outputFile.is_open()) {
+        std::cerr << "Error: Could not create output file." << std::endl;
+        return;
+    }
+
+    outputFile << std::setw(20) << "Action" << "|" << std::setw(20) << "Type" << std::endl;
+    outputFile << "--------------------------------------" << std::endl;
+
+    for (const auto& [type, entries] : logData) {
+        for (const auto& entry : entries) {
+            outputFile << std::setw(20) << entry.action << "|" << std::setw(20) << entry.type << std::endl;
+        }
+    }
+
+    outputFile.close();
+
+    std::cout << "Log data saved to " << fileName << std::endl;
 }
+
+void formatLogFile(const std::string& logFileName, const std::string& outputFileName) {
+    std::ifstream logFile(logFileName);
+
+    if (!logFile.is_open()) {
+        std::cerr << "Error: Could not open log file." << std::endl;
+        return;
+    }
+
+    std::map<std::string, std::vector<LogEntry>> logData;
+
+    std::string line;
+    while (std::getline(logFile, line)) {
+        std::istringstream iss(line);
+        std::string action, type;
+        if (iss >> action >> type) {
+            logData[type].push_back({action, type});
+        }
+    }
+
+    logFile.close();
+
+    saveLogData(logData, outputFileName);
+}
+
 void main_loop(std::map<Position, Seat> &Library);
 
 void displayAdminMenu() {
@@ -98,6 +150,65 @@ void displayAdminMenu() {
     std::cout << "4. Exit\n";
 }
 
+void displayManageUsersMenu() {
+    std::cout << "Manage Users Menu\n";
+    std::cout << "1. Show occupied seats\n";
+    std::cout << "2. Show users on break\n";
+    std::cout << "3. Kick a user\n";
+    std::cout << "4. Back to main menu\n";
+}
+
+void handleManageUsersMenu(std::map<Position, Seat> &Library) {
+    int choice;
+    do {
+        displayManageUsersMenu();
+        std::cout << "Enter your choice: ";
+        std::cin >> choice;
+        switch (choice) {
+            case 1: {
+                std::cout << "Occupied seats:\n";
+                for (const auto& [pos, seat] : Library) {
+                    if (seat.is_occupied()) {
+                        std::cout << "Seat at (" << pos.get_x() << "," << pos.get_y() << ") is occupied by user " << seat.get_occupant_id() << std::endl;
+                    }
+                }
+                break;
+            }
+            case 2: {
+                std::cout << "Enter the x and y coordinates of the seat to kick the user: ";
+                int x, y;
+                std::cin >> x >> y;
+                try {
+                    auto& seat = Library.at(Position(x, y));
+                    if (seat.is_occupied()) {
+                        seat.register_seat() = "0";
+                        std::cout << "User kicked from seat at (" << x << "," << y << ")." << std::endl;
+                        log_action("User kicked from seat at (" + std::to_string(x) + "," + std::to_string(y) + ")", "kick");
+                    } else {
+                        std::cout << "Seat at (" << x << "," << y << ") is already empty." << std::endl;
+                    }
+                } catch (const std::out_of_range&) {
+                    std::cout << "Invalid seat coordinates." << std::endl;
+                }
+                break;
+            }
+            case 3: {
+                std::cout << "Users on break:\n";
+                for (const auto& [pos, seat] : Library) {
+                    if (seat.thread.joinable() && seat.is_occupied()) {
+                        std::cout << "User at seat (" << pos.get_x() << "," << pos.get_y() << ") is on break.\n";
+                    }
+                }
+                break;
+            }
+            case 4:
+                return;
+            default:
+                std::cout << "Invalid choice. Please try again.\n";
+        }
+    } while (choice != 4);
+}
+
 void handleAdminMenu(std::map<Position, Seat> &Library) {
     int choice;
     do {
@@ -105,23 +216,27 @@ void handleAdminMenu(std::map<Position, Seat> &Library) {
         std::cout << "Enter your choice: ";
         std::cin >> choice;
         switch (choice) {
-            case 1:
-                std::cout << "Viewing logs...\n";
+            case 1: {
+                std::cout << "Logs:\n";
+                for (const auto& [type, entries] : logData) {
+                    for (const auto& entry : entries) {
+                        std::cout << entry.action << " | " << entry.type << std::endl;
+                    }
+                }
                 break;
-            case 2:
-                std::cout << "Managing users...\n";
+            }
+            case 2: {
+                handleManageUsersMenu(Library);
                 break;
+	}
             case 3:
-                std::cout << "System settings...\n";
-                break;
-            case 4:
                 std::cout << "Exiting admin menu...\n";
-		main_loop(Library);
+				main_loop(Library);
                 return;
             default:
                 std::cout << "Invalid choice. Please try again.\n";
         }
-    } while (choice != 4);
+    } while (choice != 3);
 }
 void main_loop(std::map<Position, Seat> &Library)
 {
@@ -132,6 +247,11 @@ void main_loop(std::map<Position, Seat> &Library)
 			std::cout << messageQueue.front().message << std::endl;
 			messageQueue.front().sender->thread.join();
 			messageQueue.pop();
+		};
+		while(!leavingQueue.empty()){
+			std::scoped_lock lock{seat_timer_mutex};
+			leavingQueue.front()->thread.join();
+			leavingQueue.pop();
 		};
 		std::cout << "What do you want to do?" << std::endl;
 		std::cout << "1. Show all available seats" << std::endl;
@@ -160,6 +280,16 @@ void main_loop(std::map<Position, Seat> &Library)
 			Library.at(Position(x, y)).register_seat() = occupant_id;
 			Library.at(Position(x, y)).print_password();
 			log_action("Registered seat at (" + std::to_string(x) + "," + std::to_string(y) + ") with occupant id " + occupant_id);
+			Library.at(Position(x, y)).seated_for_timer = std::jthread([&x, &y, &Library](std::stop_token stoken) {
+				std::scoped_lock lock{seat_timer_mutex};
+				auto time_start = std::chrono::steady_clock::now();
+				while(!stoken.stop_requested()){
+				}
+				auto time_end = std::chrono::steady_clock::now();
+				std::string msg("Owner of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has been seated for " + std::to_string(std::chrono::floor<std::chrono::minutes>(time_end - time_start).count()) + " minutes.");
+				leavingQueue.push(&Library.at(Position(x, y)));
+				log_action(msg);
+			});
 		}
 		else if(choice == "3") {
 			std::cout << "Enter the x and y coordinates of your seat" << std::endl;
@@ -228,10 +358,13 @@ void main_loop(std::map<Position, Seat> &Library)
 		else if(choice == "6") std::terminate();
 	}
 }
-// Function to display the admin menu
 
 int main(){
 	std::map<Position, Seat> Library;
+    std::string logFileName = "library_log.txt";
+    std::string formattedLogFileName = "formatted_library_log.txt";
+
+    formatLogFile(logFileName, formattedLogFileName);
 
 	for(int i = 0; i < 5; i++){
 		for(int j = 0; j < 5; j++){
@@ -241,4 +374,5 @@ int main(){
 
 	main_loop(Library);
 	logFile.close();
+	return 0;
 }
