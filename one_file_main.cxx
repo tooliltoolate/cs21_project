@@ -5,6 +5,7 @@
 #include <thread>
 #include <random>
 #include <mutex>
+#include <fstream>
 
 
 class Seat;
@@ -18,7 +19,7 @@ struct Message{
 
 std::queue<Message> messageQueue;
 std::mutex mtx;
-
+std::ofstream logFile("library_log.txt", std::ios::app);
 
 class Rand_int {
 	public:
@@ -75,6 +76,11 @@ public:
 	Position get_position() const { return position; }
 };
 
+void log_action(const std::string &action) {
+	std::scoped_lock lock{mtx};
+	logFile << action << std::endl;
+}
+
 void main_loop(std::map<Position, Seat> &Library)
 {
 	while(true)
@@ -96,12 +102,11 @@ void main_loop(std::map<Position, Seat> &Library)
 		std::cin >> choice;
 		if(choice == "1"){
 			for(auto it = Library.begin(); it != Library.end(); it++){
-					if(it->second.is_occupied()){
-					}
-					else{
-						std::cout << "Seat at (" << std::to_string(it->second.position.get_x()) << "," << std::to_string(it->second.position.get_y()) << ") is not occupied" << std::endl;
-					}
-			}
+					if(!it->second.is_occupied()){
+                    std::cout << "Seat at (" << it->second.position.get_x() << "," << it->second.position.get_y() << ") is not occupied" << std::endl;
+                    log_action("Checked availability of seat at (" + std::to_string(it->second.position.get_x()) + "," + std::to_string(it->second.position.get_y()) + ")");
+                }
+            }
 		}
 		else if(choice == "2"){
 			std::cout << "Enter the x and y coordinates of the seat you want to register" << std::endl;
@@ -112,7 +117,7 @@ void main_loop(std::map<Position, Seat> &Library)
 			std::cin >> occupant_id;
 			Library.at(Position(x, y)).register_seat() = occupant_id;
 			Library.at(Position(x, y)).print_password();
-			
+			log_action("Registered seat at (" + std::to_string(x) + "," + std::to_string(y) + ") with occupant id " + occupant_id);
 		}
 		else if(choice == "3") {
 			std::cout << "Enter the x and y coordinates of your seat" << std::endl;
@@ -124,8 +129,10 @@ void main_loop(std::map<Position, Seat> &Library)
 			if(Library.at(Position(x, y)).password ==password) {
 				Library.at(Position(x, y)).register_seat() = "0";
 				std::cout << "Seat at (" << x << "," << y << ") has been left." << std::endl;
+				log_action("Seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has been left.");
 			} else {
 				std::cout << "Incorrect password. Unable to leave the seat." << std::endl;
+				log_action("Failed attempt to leave seat at (" + std::to_string(x) + "," + std::to_string(y) + ") due to incorrect password.");
 			}
 		}
 		else if(choice == "4"){
@@ -150,8 +157,10 @@ void main_loop(std::map<Position, Seat> &Library)
 					messageQueue.push(msg);
 				});
 				std::cout << "User of seat at (" << x << "," << y << ") has taken a break." << std::endl;
+				log_action("User of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has taken a break.");
 			} else {
 				std::cout << "Incorrect password." << std::endl;
+				log_action("Failed attempt to take a break at seat (" + std::to_string(x) + "," + std::to_string(y) + ") due to incorrect password.");
 			}
 			
 		}
@@ -164,8 +173,10 @@ void main_loop(std::map<Position, Seat> &Library)
 			std::cin >> password;
 			if(Library.at(Position(x, y)).password ==password) {
 				Library.at(Position(x, y)).thread.request_stop();
+				log_action("User of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has returned from break.");
 			} else {
 				std::cout << "Incorrect password." << std::endl;
+				log_action("Failed attempt to return from break at seat (" + std::to_string(x) + "," + std::to_string(y) + ") due to incorrect password.");
 			}
 			
 		}
@@ -177,6 +188,8 @@ void main_loop(std::map<Position, Seat> &Library)
 			std::string occupant_id;
 			std::cin >> occupant_id;
 			Library.at(Position(x, y)).register_seat() = occupant_id;
+			log_action("Admin registered seat at (" + std::to_string(x) + "," + std::to_string(y) + ") with occupant id " + occupant_id);
+        }
 		}
 		else if(choice == "6") break;
 	}
@@ -192,4 +205,5 @@ int main(){
 	}
 
 	main_loop(Library);
+	logFile.close();
 }
