@@ -1,3 +1,4 @@
+#include <exception>
 #include <iostream>
 #include <queue>
 #include <string>
@@ -52,6 +53,7 @@ public:
 	std::string password;
 	Position position;
 	std::jthread thread;
+	std::jthread seated_for_timer;
 
 	Seat(int x, int y, std::string occupant_id) : position(x,y), occupant_id(occupant_id) { 
 		Rand_int rand_int {1000, 9999};
@@ -82,6 +84,45 @@ void log_action(const std::string &action) {
 	logFile << action << std::endl;
 }
 
+void log_action(const Message &action) {
+	std::scoped_lock lock{log_file_mutex};
+	logFile << action.message << std::endl;
+}
+void main_loop(std::map<Position, Seat> &Library);
+
+void displayAdminMenu() {
+    std::cout << "Admin Menu\n";
+    std::cout << "1. View logs\n";
+    std::cout << "2. Manage users\n";
+    std::cout << "3. System settings\n";
+    std::cout << "4. Exit\n";
+}
+
+void handleAdminMenu(std::map<Position, Seat> &Library) {
+    int choice;
+    do {
+        displayAdminMenu();
+        std::cout << "Enter your choice: ";
+        std::cin >> choice;
+        switch (choice) {
+            case 1:
+                std::cout << "Viewing logs...\n";
+                break;
+            case 2:
+                std::cout << "Managing users...\n";
+                break;
+            case 3:
+                std::cout << "System settings...\n";
+                break;
+            case 4:
+                std::cout << "Exiting admin menu...\n";
+		main_loop(Library);
+                return;
+            default:
+                std::cout << "Invalid choice. Please try again.\n";
+        }
+    } while (choice != 4);
+}
 void main_loop(std::map<Position, Seat> &Library)
 {
 	while(true)
@@ -100,14 +141,14 @@ void main_loop(std::map<Position, Seat> &Library)
 		std::cout << "5. Return from break" << std::endl;
 		std::cout << "6. Exit" << std::endl;
 		std::string choice;
-		std::cin >> choice;
+		getline(std::cin, choice);
 		if(choice == "1"){
 			for(auto it = Library.begin(); it != Library.end(); it++){
-					if(!it->second.is_occupied()){
-                    std::cout << "Seat at (" << it->second.position.get_x() << "," << it->second.position.get_y() << ") is not occupied" << std::endl;
-                    log_action("Checked availability of seat at (" + std::to_string(it->second.position.get_x()) + "," + std::to_string(it->second.position.get_y()) + ")");
-                }
+				if(!it->second.is_occupied()){
+				    std::cout << "Seat at (" << it->second.position.get_x() << "," << it->second.position.get_y() << ") is not occupied" << std::endl;
+				}
 			}
+		        log_action("Checked availability of seats");
 		}
 		else if(choice == "2"){
 			std::cout << "Enter the x and y coordinates of the seat you want to register" << std::endl;
@@ -147,14 +188,14 @@ void main_loop(std::map<Position, Seat> &Library)
 				Library.at(Position(x, y)).thread = std::jthread([&x, &y, &Library](std::stop_token stoken) {
 					std::scoped_lock lock{alarm_queue_mutex};
 					Message msg("Owner of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has not yet returned.", &Library.at(Position(x, y)));
-					//Message msg2("Owner of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has returned.", &Library.at(Position(x, y)));
-					for(int i = 0; i < 15; i++){
+					for(int i = 0; i < 5; i++){
 						std::this_thread::sleep_for(std::chrono::seconds(1));
 						if(stoken.stop_requested()) {
 							return;
 						}
 					}
 					messageQueue.push(msg);
+					log_action(msg);
 				});
 				std::cout << "User of seat at (" << x << "," << y << ") has taken a break." << std::endl;
 				log_action("User of seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has taken a break.");
@@ -182,18 +223,12 @@ void main_loop(std::map<Position, Seat> &Library)
 			
 		}
 		else if(choice == "admin password"){
-			std::cout << "Enter the x and y coordinates of the seat you want to register" << std::endl;
-			int x, y;
-			std::cin >> x >> y;
-			std::cout << "Enter the occupant id" << std::endl;
-			std::string occupant_id;
-			std::cin >> occupant_id;
-			Library.at(Position(x, y)).register_seat() = occupant_id;
-			log_action("Admin registered seat at (" + std::to_string(x) + "," + std::to_string(y) + ") with occupant id " + occupant_id);
+			handleAdminMenu(Library);
 		}
-		else if(choice == "6") break;
+		else if(choice == "6") std::terminate();
 	}
 }
+// Function to display the admin menu
 
 int main(){
 	std::map<Position, Seat> Library;
