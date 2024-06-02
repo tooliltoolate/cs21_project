@@ -46,7 +46,7 @@ public:
 	}
 };
 
-class Seat {
+class Seat { 
 public:
 	std::string occupant_id;
 	std::string password;
