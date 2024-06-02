@@ -95,6 +95,14 @@ void log_action(const std::string& action, const std::string& type) {
     logData[type].push_back({action, type}); 
 }
 
+void log_action(const std::string& action) {
+    logFile << action << std::endl;
+}
+
+void log_action(Message msg) {
+    logFile << msg.message << std::endl;
+}
+
 void saveLogData(const std::map<std::string, std::vector<LogEntry>>& logData, const std::string& fileName) {
     std::ofstream outputFile(fileName);
 
