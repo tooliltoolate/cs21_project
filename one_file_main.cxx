@@ -7,6 +7,8 @@
 #include <random>
 #include <mutex>
 #include <fstream>
+#include <vector>
+#include <iomanip>
 
 
 class Seat;
@@ -18,9 +20,15 @@ struct Message{
 	Message(std::string message, Seat *address) : message(message), sender(address) {}
 };
 
+struct LogEntry {
+    std::string action;
+    std::string type; 
+};
+
 std::queue<Message> messageQueue;
 std::mutex alarm_queue_mutex;
 std::ofstream logFile("library_log.txt", std::ios::app);
+std::map<std::string, std::vector<LogEntry>> logData;
 std::mutex log_file_mutex;
 
 class Rand_int {
@@ -79,15 +87,59 @@ public:
 	Position get_position() const { return position; }
 };
 
-void log_action(const std::string &action) {
-	std::scoped_lock lock{log_file_mutex};
-	logFile << action << std::endl;
+void log_action(const std::string& action, const std::string& type) {
+    logFile << action << std::endl;
+    logData[type].push_back({action, type}); 
 }
 
-void log_action(const Message &action) {
-	std::scoped_lock lock{log_file_mutex};
-	logFile << action.message << std::endl;
+void saveLogData(const std::map<std::string, std::vector<LogEntry>>& logData, const std::string& fileName) {
+    std::ofstream outputFile(fileName);
+
+    if (!outputFile.is_open()) {
+        std::cerr << "Error: Could not create output file." << std::endl;
+        return;
+    }
+
+    // Write header
+    outputFile << std::setw(20) << "Action" << "|" << std::setw(20) << "Type" << std::endl;
+    outputFile << "--------------------------------------" << std::endl;
+
+    // Write log entries
+    for (const auto& [type, entries] : logData) {
+        for (const auto& entry : entries) {
+            outputFile << std::setw(20) << entry.action << "|" << std::setw(20) << entry.type << std::endl;
+        }
+    }
+
+    outputFile.close();
+
+    std::cout << "Log data saved to " << fileName << std::endl;
 }
+
+void formatLogFile(const std::string& logFileName, const std::string& outputFileName) {
+    std::ifstream logFile(logFileName);
+
+    if (!logFile.is_open()) {
+        std::cerr << "Error: Could not open log file." << std::endl;
+        return;
+    }
+
+    std::map<std::string, std::vector<LogEntry>> logData;
+
+    std::string line;
+    while (std::getline(logFile, line)) {
+        std::istringstream iss(line);
+        std::string action, type;
+        if (iss >> action >> type) {
+            logData[type].push_back({action, type});
+        }
+    }
+
+    logFile.close();
+
+    saveLogData(logData, outputFileName);
+}
+
 void main_loop(std::map<Position, Seat> &Library);
 
 void displayAdminMenu() {
@@ -228,10 +280,13 @@ void main_loop(std::map<Position, Seat> &Library)
 		else if(choice == "6") std::terminate();
 	}
 }
-// Function to display the admin menu
 
 int main(){
 	std::map<Position, Seat> Library;
+    std::string logFileName = "library_log.txt";
+    std::string formattedLogFileName = "formatted_library_log.txt";
+
+    formatLogFile(logFileName, formattedLogFileName);
 
 	for(int i = 0; i < 5; i++){
 		for(int j = 0; j < 5; j++){
@@ -241,4 +296,5 @@ int main(){
 
 	main_loop(Library);
 	logFile.close();
+	return 0;
 }
