@@ -11,6 +11,7 @@
 #include <vector>
 #include <iomanip>
 #include <sstream>
+#include <cstdlib>
 
 class Seat;
 
@@ -97,10 +98,12 @@ void log_action(const std::string& action, const std::string& type) {
 
 void log_action(const std::string& action) {
     logFile << action << std::endl;
+    logData["Default"].push_back({action, "Default"}); 
 }
 
 void log_action(Message msg) {
     logFile << msg.message << std::endl;
+    logData["Default"].push_back({msg.message, "Default"}); 
 }
 
 void saveLogData(const std::map<std::string, std::vector<LogEntry>>& logData, const std::string& fileName) {
@@ -155,8 +158,7 @@ void displayAdminMenu() {
     std::cout << "Admin Menu\n";
     std::cout << "1. View logs\n";
     std::cout << "2. Manage users\n";
-    std::cout << "3. System settings\n";
-    std::cout << "4. Exit\n";
+    std::cout << "3. Exit\n";
 }
 
 void displayManageUsersMenu() {
@@ -170,6 +172,17 @@ void displayManageUsersMenu() {
 void handleManageUsersMenu(std::map<Position, Seat> &Library) {
     int choice;
     do {
+	    while(!messageQueue.empty()){
+		    std::scoped_lock lock{alarm_queue_mutex};
+		    std::cout << messageQueue.front().message << std::endl;
+		    messageQueue.front().sender->thread.join();
+		    messageQueue.pop();
+	    };
+	    while(!leavingQueue.empty()){
+		    std::scoped_lock lock{seat_timer_mutex};
+		    leavingQueue.front()->thread.join();
+		    leavingQueue.pop();
+	    };
         displayManageUsersMenu();
         std::cout << "Enter your choice: ";
         std::cin >> choice;
@@ -183,7 +196,7 @@ void handleManageUsersMenu(std::map<Position, Seat> &Library) {
                 }
                 break;
             }
-            case 2: {
+            case 3: {
                 std::cout << "Enter the x and y coordinates of the seat to kick the user: ";
                 int x, y;
                 std::cin >> x >> y;
@@ -201,7 +214,7 @@ void handleManageUsersMenu(std::map<Position, Seat> &Library) {
                 }
                 break;
             }
-            case 3: {
+            case 2: {
                 std::cout << "Users on break:\n";
                 for (const auto& [pos, seat] : Library) {
                     if (seat.thread.joinable() && seat.is_occupied()) {
@@ -221,6 +234,17 @@ void handleManageUsersMenu(std::map<Position, Seat> &Library) {
 void handleAdminMenu(std::map<Position, Seat> &Library) {
     int choice;
     do {
+	    while(!messageQueue.empty()){
+		    std::scoped_lock lock{alarm_queue_mutex};
+		    std::cout << messageQueue.front().message << std::endl;
+		    messageQueue.front().sender->thread.join();
+		    messageQueue.pop();
+	    };
+	    while(!leavingQueue.empty()){
+		    std::scoped_lock lock{seat_timer_mutex};
+		    leavingQueue.front()->thread.join();
+		    leavingQueue.pop();
+	    };
         displayAdminMenu();
         std::cout << "Enter your choice: ";
         std::cin >> choice;
@@ -311,7 +335,8 @@ void main_loop(std::map<Position, Seat> &Library)
 				Library.at(Position(x, y)).register_seat() = "0";
 				std::cout << "Seat at (" << x << "," << y << ") has been left." << std::endl;
 				log_action("Seat at (" + std::to_string(x) + "," + std::to_string(y) + ") has been left.");
-				Library.at(Position(x, y)).seated_for_timer.request_stop();
+				if(Library.at(Position(x, y)).seated_for_timer.joinable())
+				    Library.at(Position(x, y)).seated_for_timer.request_stop();
 			} else {
 				std::cout << "Incorrect password. Unable to leave the seat." << std::endl;
 				log_action("Failed attempt to leave seat at (" + std::to_string(x) + "," + std::to_string(y) + ") due to incorrect password.");
